@@ -6,8 +6,10 @@
 # just once to produce a ldif part to be installed in the ldif
 # gip directory
 #
-# Modified by David Groep, based very heavily on code by:
-# Author: Massimo Sgaravatto
+# Author: Dennis van Dok
+# Based on the code by Massimo Sgaravatto, with modifications by
+# David Groep
+# Original name: globus-info-gip-gram5-glue2-share-static
 #
 # Ref: http://www.ogf.org/documents/GFD.147.pdf
 #      http://glue20.web.cern.ch/glue20/
@@ -55,12 +57,9 @@ my %vo = readconfig("vo.conf");
 my %cluster = readconfig("cluster.conf");
 
 # Output files
+my $outfile = $outputdir . "/ComputingShare.ldif";
 
-my $cefile = $outputdir . "/static-file-CE.ldif";
-my $sebindfile = $outputdir . "/static-file-CESEBind.ldif";
-
-open CE, ">", $cefile or die "Can't open $cefile for writing, stopped";
-open SEBIND, ">", $sebindfile or die "Can't open $sebindfile for writing, stopped";
+open OUT, ">", $outfile or die "Can't open $outfile for writing, stopped";
 
 # How do I determine *this* host? FIXME
 chomp(my $hostname = `hostname -f`);
@@ -68,12 +67,12 @@ my $host = ($ce{top}{node} || $hostname);
 
 # test if the host is defined
 
-die "Missing $node section in ce.conf, stopped" if (!$ce{$node});
-my $n = $ce{$node};
+die "Missing $host section in ce.conf, stopped" if (!$ce{$host});
+my $n = $ce{$host};
 
 my $clustername = $$n{cluster};
 
-my $c = $cluster{$clustername} or die "Missing cluster $cluster in cluster.conf, stopped";
+my $c = $cluster{$clustername} or die "Missing cluster $clustername in cluster.conf, stopped";
 
 # Get service id from conf file. This is a cluster property (cf. gLite CLUSTER)
 my $ServiceID = $$c{ComputingServiceID} or die "Missing ComputingServiceID in $clustername, stopped";
@@ -81,7 +80,7 @@ my $ServiceID = $$c{ComputingServiceID} or die "Missing ComputingServiceID in $c
 my $bind_dn = "GLUE2ServiceID=$ServiceID,GLUE2GroupID=resource,o=glue";
 
 # Shares are like queues.
-my $queues = $$n{queues} || die "no queues defined for $$node in ce.conf";
+my $queues = $$n{queues} || die "no queues defined for $host in ce.conf";
 
 # Times are mandated to be UTC only
 my $TimeNow = strftime("%Y-%m-%dT%H:%M:%SZ", gmtime());
@@ -108,26 +107,27 @@ for my $qname (split /\s+/, $queues) {
 	# complete, valid object. Start with the DN ...
 
 	# UID for share is concatenation of queue name, VO and ServiceId
-
+	# If the Id is made up of the VO, then multiple ACBRs for the
+	# same VO will have to be aggregated (TODO).
 	for (@acl) {
 	    # derive the VO name to use as a share name
 	    my $vo = $_;
 	    $vo =~ s,^VO(MS)?:/?([^/]+).*,$2,;
 
-	    my $ShareId = $qname . $vo . "_$ServiceID";
+	    my $ShareId = "${qname}_${vo}_${ServiceID}";
 
-	    print "dn: GLUE2ShareID=$ShareId,$bind_dn\n";
+	    print OUT "dn: GLUE2ShareID=$ShareId,$bind_dn\n";
 
 	    # Print the boilerplate objectclass declarations and unique ID
 
-	    print "objectClass: GLUE2Entity\n";
-	    print "objectClass: GLUE2Share\n";
-	    print "objectClass: GLUE2ComputingShare\n";
+	    print OUT "objectClass: GLUE2Entity\n";
+	    print OUT "objectClass: GLUE2Share\n";
+	    print OUT "objectClass: GLUE2ComputingShare\n";
 
 	    #Shareid
-	    print "GLUE2ShareID: $ShareId\n";
+	    print OUT "GLUE2ShareID: $ShareId\n";
 
-	    print "GLUE2EntityCreationTime: $TimeNow\n";
+	    print OUT "GLUE2EntityCreationTime: $TimeNow\n";
 
 	    # No validity, since this is static info
 
@@ -139,16 +139,16 @@ for my $qname (split /\s+/, $queues) {
 	    $lrms = "pbs" if $lrms eq "torque";
 
 
-	    my $CEId = $host . ":8443/gram5-" . $lrms . "-$queuename";
+	    my $CEId = $host . ":8443/gram5-" . $lrms . "-$qname";
 
 
 	    # Embed some metadata to help with debugging
-	    print "GLUE2EntityOtherInfo: InfoProviderName=gram5-glue2-share-static\n";
-	    print "GLUE2EntityOtherInfo: InfoProviderVersion=$version\n";
-	    print "GLUE2EntityOtherInfo: InfoProviderHost=$host\n";
+	    print OUT "GLUE2EntityOtherInfo: InfoProviderName=gram5-glue2-share-static\n";
+	    print OUT "GLUE2EntityOtherInfo: InfoProviderVersion=$version\n";
+	    print OUT "GLUE2EntityOtherInfo: InfoProviderHost=$host\n";
 
 	    # Queue name
-	    print "GLUE2ComputingShareMappingQueue: $qname\n";
+	    print OUT "GLUE2ComputingShareMappingQueue: $qname\n";
 
 	    # Default value for Serving state is production
 	    # Real value supposed to be provided by the dynamic plugin 
@@ -156,7 +156,7 @@ for my $qname (split /\s+/, $queues) {
 	    # ServingState is read from conf file
 	    my $GLUE2EndpointServingState = lc $$n{Status};
 
-	    print "GLUE2ComputingShareServingState: $GLUE2EndpointServingState\n";
+	    print OUT "GLUE2ComputingShareServingState: $GLUE2EndpointServingState\n";
 
 	    # Link to the ExecutionEnvironment (only one, the first one, 
 	    # for the time being)
@@ -166,15 +166,15 @@ for my $qname (split /\s+/, $queues) {
 	    # EES in proper code.
 	    my ($FirstEE) = split /\s+/, $$c{subclusters};
 
-	    print "GLUE2ShareResourceForeignKey: $FirstEE\n";
-	    print "GLUE2ComputingShareExecutionEnvironmentForeignKey: $FirstEE\n";
+	    print OUT "GLUE2ShareResourceForeignKey: $FirstEE\n";
+	    print OUT "GLUE2ComputingShareExecutionEnvironmentForeignKey: $FirstEE\n";
 
 	    # Finally print the upward link to the parent Service
-	    print "GLUE2ShareServiceForeignKey: $ServiceID\n";
-	    print "GLUE2ComputingShareComputingServiceForeignKey: $ServiceID\n";
+	    print OUT "GLUE2ShareServiceForeignKey: $ServiceID\n";
+	    print OUT "GLUE2ComputingShareComputingServiceForeignKey: $ServiceID\n";
 
 	    # Print a newline to finish the object
-	    print "\n";
+	    print OUT "\n";
 
 	    # Now printing the GLUE2MappingPolicy objectclass for this share
 	    my $bind_dn_policy = "GLUE2ShareId=$ShareId,GLUE2ServiceID=$ServiceID,GLUE2GroupID=resource,o=glue";
@@ -185,30 +185,30 @@ for my $qname (split /\s+/, $queues) {
 	    # Now start outputting LDIF lines for the GLUE2MappingPolicy object.
 	    # Note that once we get here we are committed to printing a
 	    # complete, valid object. Start with the DN ...
-	    print "dn: GLUE2PolicyID=$PolicyId,$bind_dn_policy\n";
+	    print OUT "dn: GLUE2PolicyID=$PolicyId,$bind_dn_policy\n";
 
 	    #Print the boilerplate objectclass declarations and unique ID
-	    print "objectClass: GLUE2Entity\n";
-	    print "objectClass: GLUE2Policy\n";
-	    print "objectClass: GLUE2MappingPolicy\n";
-	    print "GLUE2PolicyID: $PolicyId\n";
+	    print OUT "objectClass: GLUE2Entity\n";
+	    print OUT "objectClass: GLUE2Policy\n";
+	    print OUT "objectClass: GLUE2MappingPolicy\n";
+	    print OUT "GLUE2PolicyID: $PolicyId\n";
 
-	    print "GLUE2EntityCreationTime: $TimeNow\n";
+	    print OUT "GLUE2EntityCreationTime: $TimeNow\n";
 
 	    # No validity, since this is static info
 
-	    print "GLUE2PolicyScheme: org.glite.standard\n";
+	    print OUT "GLUE2PolicyScheme: org.glite.standard\n";
 
 	    # remember $_ is the current ACL
-	    print "GLUE2PolicyRule: $_\n";
+	    print OUT "GLUE2PolicyRule: $_\n";
 
 	    # As GLUE2PolicyUserDomainForeignKey print the Owner (==VO)
-	    print "GLUE2PolicyUserDomainForeignKey: $vo\n";
+	    print OUT "GLUE2PolicyUserDomainForeignKey: $vo\n";
 
-	    print "GLUE2MappingPolicyShareForeignKey: $ShareId\n";
+	    print OUT "GLUE2MappingPolicyShareForeignKey: $ShareId\n";
 
 	    # Print a newline to finish the object
-	    print "\n";
+	    print OUT "\n";
 	}
     }
 }
