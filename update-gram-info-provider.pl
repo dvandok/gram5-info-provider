@@ -58,8 +58,7 @@
 # Done!
 
 # Read the configuration files
-
-use Config::IniFiles;
+use strict;
 use Getopt::Long;
 use Site::Configuration;
 
@@ -76,7 +75,7 @@ output files are written to current directory.
   $Site::Configuration::confdir = $outputdir = ".";
 }
 
-my %ce = readconfig("ce.conf") or die "Missing ce.conf configuration file, stopping";
+my %ce = readconfig("ce.conf");
 my %vo = readconfig("vo.conf");
 my %cluster = readconfig("cluster.conf");
 
@@ -94,12 +93,12 @@ my $node = ($ce{top}{node} || $hostname);
 
 # test if the host is defined
 
-die "Missing $node section in $ceconf, stopped" if (!$ce{$node});
+die "Missing $node section in ce.conf, stopped" if (!$ce{$node});
 
 
 my $n = $ce{$node};
 
-my $queues = $$n{queues} || die "no queues defined for $$node in $ceconf";
+my $queues = $$n{queues} || die "no queues defined for $$node in ce.conf";
 
 my $port = ($$n{port} || 2119);
 my $cetype = ($$n{cetype} || "jobmanager");
@@ -204,11 +203,13 @@ EOF
     #      c) VOMS:/foo/Role=Null/Capability=Null
     #    then consider what other views there are for the same VO and add DENY clauses for them.
     for (@acl) {
-      my $voms = s/VO(MS)?://r;
+      my $voms = $_;
+      $voms =~ s/VO(MS)?://;
       # strip Role=Null and Capability=Null now
       $voms =~ s,/(Role|Capability)=Null,,ig;
       # convert any remaining '=' signs to '_'.
-      my $localid = $voms =~ s/=/_/gr;
+      my $localid = $voms;
+      $localid =~ s/=/_/g;
 
       # retrieve the VO name
       my ($vo) = $voms =~ m,/?([^/]+),;
@@ -249,7 +250,8 @@ EOF
 	# iterate over all ACLs again, scanning for sub-groups or roles within this VO.
 	for my $denyacl (@acl) {
 	  # perform the same manipulations we've done for localid
-	  my $denyvoms = $denyacl =~ s/VO(MS)?://r;
+	  my $denyvoms = $denyacl;
+	  $denyvoms =~ s/VO(MS)?://;
 	  $denyvoms =~ s,/(Role|Capability)=Null,,ig;
 	  $denyvoms =~ s,^(?!/),/,;
 	  # Now see how $voms and $denyvoms are alike. Essentially, $denyvoms
