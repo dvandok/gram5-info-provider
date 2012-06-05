@@ -1,0 +1,27 @@
+# Emacs users may prefer -*- org -*- mode. Still ASCII for the rest.
+
+* News for version 0.2
+
+  This is the second unrelease of the gram-info-provider package. This
+  version brings the GLUE 2 schema scripts, reworked from the existing
+  CREAM scripts. Some of the scripts are refactored to output ldif data
+  via Net::LDAP::LDIF instead of via print statements.
+
+  Many corners were cut so the output of these scripts must not be taken
+  as production ready. Also lacking are documentation and more safety
+  checks for errors.
+
+* News for version 0.1
+
+  This is the initial unrelease of the gram-info-provider package that
+  brings GLUE schema compliant Grid Information System data to the
+  GRAM5 compute element.  This version is still very experimental, and
+  only outputs GLUE 1.3 compatible data modeled after the analogue
+  scripts for the CREAM compute element of EMI.
+
+  The information sources has been reworked from a collection of shell
+  variables and configuration scripts called YAIM into a much simpler
+  collection of INI-style configuration files.
+
+  The scripts have been written in Legible Perl(TM) and make use of an
+  external module for reading and parsing the configuration files.
