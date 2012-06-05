@@ -58,7 +58,9 @@ my %cluster = readconfig("cluster.conf");
 
 # Output files
 my $outfile = $outputdir . "/ComputingManager.ldif";
-open OUT, ">", $outfile or die "Can't open $outfile for writing, stopped";
+
+#open OUT, ">", $outfile or die "Can't open $outfile for writing, stopped";
+my $ldif = Net::LDAP::LDIF->new($outfile, "w");
 
 
 # Determine this host.
@@ -82,46 +84,57 @@ my $bind_dn = "GLUE2ServiceID=$ServiceID,GLUE2GroupID=resource,o=glue";
 # Now start outputting LDIF lines for the Manager object.
 # Note that once we get here we are committed to printing a
 # complete, valid object. Start with the DN ...
+#print "dn: GLUE2ManagerId=$ManagerId,$bind_dn\n";
 
-print "dn: GLUE2ManagerId=$ManagerId,$bind_dn\n";
+my $entry = Net::LDAP::Entry->new("GLUE2ManagerId=$ManagerId,$bind_dn");
 
 # Print the boilerplate objectclass declarations and unique ID
+#print "objectClass: GLUE2Entity\n";
+#print "objectClass: GLUE2Manager\n";
+#print "objectClass: GLUE2ComputingManager\n";
 
-print "objectClass: GLUE2Entity\n";
-print "objectClass: GLUE2Manager\n";
-print "objectClass: GLUE2ComputingManager\n";
+$entry->add('objectClass', [qw{GLUE2Entity GLUE2Manager GLUE2ComputingManager}]);
 
 # Times are mandated to be UTC only
 my $TimeNow = strftime("%Y-%m-%dT%H:%M:%SZ", gmtime());
-print "GLUE2EntityCreationTime: $TimeNow\n";
+#print "GLUE2EntityCreationTime: $TimeNow\n";
+$entry->add('GLUE2EntityCreationTime', $TimeNow);
 
 # No validity, since this is static info
 
 # Manager Id
-print "GLUE2ManagerID: $ManagerId\n";
-
+#print "GLUE2ManagerID: $ManagerId\n";
+$entry->add('GLUE2ManagerID', $ManagerId);
 # The name is just an indicative human-readable string.
-print "GLUE2EntityName: Computing Manager on $host\n";
+#print "GLUE2EntityName: Computing Manager on $host\n";
+$entry->add('GLUE2EntityName', "Computing Manager on $host");
 
 # Embed some metadata to help with debugging
 
-print "GLUE2EntityOtherInfo: InfoProviderName=glite-ce-glue2-manager-static\n";
-print "GLUE2EntityOtherInfo: InfoProviderVersion=$version\n";
-print "GLUE2EntityOtherInfo: InfoProviderHost=$host\n";
+#print "GLUE2EntityOtherInfo: InfoProviderName=glite-ce-glue2-manager-static\n";
+#print "GLUE2EntityOtherInfo: InfoProviderVersion=$version\n";
+#print "GLUE2EntityOtherInfo: InfoProviderHost=$host\n";
+$entry->add('GLUE2EntityOtherInfo', "InfoProviderName=glite-ce-glue2-manager-static");
+$entry->add('GLUE2EntityOtherInfo', "InfoProviderVersion=$version");
+$entry->add('GLUE2EntityOtherInfo', "InfoProviderHost=$host");
 
 # ProductName
 my $GLUE2ManagerProductName = $$n{lrmstype};
 
-print "GLUE2ManagerProductName: $GLUE2ManagerProductName\n";
+#print "GLUE2ManagerProductName: $GLUE2ManagerProductName\n";
+$entry->add('GLUE2ManagerProductName', "$GLUE2ManagerProductName");
 
 # ProductVersion 
 my $GLUE2ManagerProductVersion = $$n{lrmsversion};
-print "GLUE2ManagerProductVersion: $GLUE2ManagerProductVersion\n";
+#print "GLUE2ManagerProductVersion: $GLUE2ManagerProductVersion\n";
+$entry->add('GLUE2ManagerProductVersion', "$GLUE2ManagerProductVersion");
 
 # Finally print the upward link to the parent Service
-print "GLUE2ManagerServiceForeignKey: $ServiceID\n";
-print "GLUE2ComputingManagerComputingServiceForeignKey: $ServiceID\n";
+#print "GLUE2ManagerServiceForeignKey: $ServiceID\n";
+#print "GLUE2ComputingManagerComputingServiceForeignKey: $ServiceID\n";
+$entry->add('GLUE2ManagerServiceForeignKey', $ServiceID);
+$entry->add('GLUE2ComputingManagerComputingServiceForeignKey', $ServiceID);
 
-# Print a newline to finish the object
-print "\n";
+$ldif->write_entry($entry);
+
 
