@@ -42,7 +42,7 @@ scripts = update-gram-info-provider.pl \
 
 gipdynamicplugins = globus-gip-gram5-glue2-endpoint-dynamic.pl
 
-distfiles = Makefile LICENSE gram5-info-provider.spec $(scripts) $(gipdynamicplugins)
+distfiles = Makefile LICENSE NEWS gram5-info-provider.spec $(scripts) $(gipdynamicplugins)
 
 .PHONY: install build installdirs install-scripts install-plugins
 
