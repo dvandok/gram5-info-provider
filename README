@@ -1,0 +1,5 @@
+This package contains the configuration of Information System data
+for a GRAM5 endpoint, for GLUE version 1.3 and 2.0. This needs to be
+complemented with the information providers specific for the
+batch system used behind the CE.
+
