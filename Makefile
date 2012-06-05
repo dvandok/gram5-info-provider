@@ -32,7 +32,7 @@ DESTDIR =
 # These variables should not be changed by the user
 
 package = gram5-info-provider
-version = 0.1
+version = 0.2
 scripts = update-gram-info-provider.pl \
 	update-gram-glue2-computingservice-static.pl \
 	update-gram-glue2-endpoint-static.pl \
