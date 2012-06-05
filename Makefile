@@ -25,16 +25,26 @@
 prefix = /usr
 datadir = $(prefix)/share
 sbindir = $(prefix)/sbin
+plugindir = $(prefix)/libexec # not FHS compliant, but Red Hat uses it
+
 DESTDIR =
 
 # These variables should not be changed by the user
 
 package = gram5-info-provider
 version = 0.1
-scripts = update-gram-info-provider.pl
-distfiles = Makefile LICENSE gram5-info-provider.spec $(scripts)
+scripts = update-gram-info-provider.pl \
+	update-gram-glue2-computingservice-static.pl \
+	update-gram-glue2-endpoint-static.pl \
+	update-gram-glue2-manager-static.pl \
+	update-gram-glue2-share-static.pl \
+	update-gram-glue2-tostorageservice-static.pl
 
-.PHONY: install build installdirs install-scripts
+gipdynamicplugins = globus-gip-gram5-glue2-endpoint-dynamic.pl
+
+distfiles = Makefile LICENSE gram5-info-provider.spec $(scripts) $(gipdynamicplugins)
+
+.PHONY: install build installdirs install-scripts install-plugins
 
 build:
 	@echo "build done. Run 'make install' to finish the installation"
@@ -42,12 +52,20 @@ build:
 installdirs:
 	mkdir -p $(DESTDIR)/$(sbindir)
 	mkdir -p $(DESTDIR)/$(datadir)
+	mkdir -p $(DESTDIR)/$(plugindir)
 
+# Install scripts and plugins without their filename extension.
 install-scripts: installdirs
-	install -m 755 update-gram-info-provider.pl $(DESTDIR)/$(sbindir)/update-gram-info-provider
+	for i in $(scripts) ; do \
+	    install -m 755 $$i $(DESTDIR)/$(sbindir)/`echo $$i | sed 's/\..*//'` ; \
+	done
 
+install-plugins: installdirs
+	for i in $(gipdynamicplugins) ; do \
+	    install -m 755 $$i $(DESTDIR)/$(plugindir)/`echo $$i | sed 's/\..*//'` ; \
+	done
 
-install: install-scripts
+install: install-scripts install-plugins
 
 dist:
 	rm -rf _dist/
